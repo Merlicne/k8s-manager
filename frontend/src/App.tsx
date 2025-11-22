@@ -1,11 +1,8 @@
 import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { getContexts, getPods } from './api'
 import { 
   RefreshCw, 
   Server, 
   Box, 
-  Activity, 
   AlertCircle, 
   CheckCircle2, 
   Clock,
@@ -13,78 +10,17 @@ import {
   LayoutDashboard,
   ChevronDown
 } from 'lucide-react'
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-
-function StatCard({ title, value, icon: Icon, color, subtext }: { title: string, value: number | string, icon: any, color: string, subtext?: string }) {
-  return (
-    <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-stone-500">{title}</p>
-          <h3 className="text-2xl font-bold text-stone-900 mt-1">{value}</h3>
-          {subtext && <p className="text-xs text-stone-400 mt-1">{subtext}</p>}
-        </div>
-        <div className={cn("p-3 rounded-lg bg-opacity-10", color)}>
-          <Icon className={cn("w-6 h-6", color.replace('bg-', 'text-'))} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles = useMemo(() => {
-    switch (status) {
-      case 'Running':
-        return 'bg-emerald-50 text-emerald-800 border-emerald-200'
-      case 'Pending':
-        return 'bg-amber-50 text-amber-800 border-amber-200'
-      case 'Failed':
-      case 'CrashLoopBackOff':
-      case 'ErrImagePull':
-        return 'bg-red-50 text-red-800 border-red-200'
-      default:
-        return 'bg-stone-50 text-stone-700 border-stone-200'
-    }
-  }, [status])
-
-  const Icon = useMemo(() => {
-    switch (status) {
-      case 'Running': return CheckCircle2
-      case 'Pending': return Clock
-      case 'Failed': return AlertCircle
-      default: return Activity
-    }
-  }, [status])
-
-  return (
-    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", styles)}>
-      <Icon className="w-3.5 h-3.5" />
-      {status}
-    </span>
-  )
-}
+import { useContexts, usePods } from './hooks/useK8s'
+import { StatCard } from './components/StatCard'
+import { StatusBadge } from './components/StatusBadge'
 
 function App() {
   const [selectedContext, setSelectedContext] = useState<string>('')
   const [search, setSearch] = useState('')
+  const [refreshInterval, setRefreshInterval] = useState(5000)
 
-  const { data: contexts, isLoading: loadingContexts } = useQuery({
-    queryKey: ['contexts'],
-    queryFn: getContexts,
-  })
-
-  const { data: pods, isLoading: loadingPods, isRefetching } = useQuery({
-    queryKey: ['pods', selectedContext],
-    queryFn: () => getPods(selectedContext),
-    enabled: !!selectedContext,
-    refetchInterval: 5000,
-  })
+  const { data: contexts, isLoading: loadingContexts } = useContexts()
+  const { data: pods, isLoading: loadingPods, isRefetching } = usePods(selectedContext, refreshInterval)
 
   const stats = useMemo(() => {
     if (!pods) return { total: 0, running: 0, pending: 0, failed: 0 }
@@ -112,7 +48,7 @@ function App() {
           <div className="bg-stone-800 p-2 rounded-lg">
             <Server className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-stone-700 to-amber-900">
+          <span className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-stone-700 to-amber-900">
             K8s Manager
           </span>
         </div>
@@ -221,6 +157,20 @@ function App() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
+                </div>
+
+                <div className="relative">
+                  <select
+                    className="appearance-none pl-3 pr-8 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-medium text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-900/20 focus:border-amber-900 transition-all cursor-pointer"
+                    value={refreshInterval}
+                    onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                  >
+                    <option value={5000}>5s</option>
+                    <option value={10000}>10s</option>
+                    <option value={30000}>30s</option>
+                    <option value={60000}>1m</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                 </div>
               </div>
 

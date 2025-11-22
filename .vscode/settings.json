@@ -3,6 +3,10 @@
         "backend/Cargo.toml"
     ],
     "rust-analyzer.cargo.workingDir": "backend",
+    "rust-analyzer.check.allTargets": true,
+    "rust-analyzer.check.command": "check",
+    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.procMacro.enable": true,
     "eslint.workingDirectories": [
         "./frontend"
     ],

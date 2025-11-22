@@ -1,14 +1,11 @@
-use axum::{
-    routing::get,
-    Router,
-    Json,
-};
 use std::net::SocketAddr;
-use tower_http::cors::{CorsLayer, Any};
-use serde_json::{json, Value};
+use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
+use crate::services::k8s::K8sClient;
 
-mod k8s;
-mod routes;
+mod handlers;
+mod router;
+mod services;
 
 #[tokio::main]
 async fn main() {
@@ -21,20 +18,15 @@ async fn main() {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    // Initialize services
+    let k8s_service = Arc::new(K8sClient::new());
+
     // Build our application with a route
-    let app = Router::new()
-        .route("/health", get(health_check))
-        .route("/api/contexts", get(routes::list_contexts))
-        .route("/api/{context}/pods", get(routes::list_pods))
-        .layer(cors);
+    let app = router::create_router(k8s_service).layer(cors);
 
     // Run it
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("Backend listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn health_check() -> Json<Value> {
-    Json(json!({ "status": "ok", "message": "K8s Manager Backend is running" }))
 }

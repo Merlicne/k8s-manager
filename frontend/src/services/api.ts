@@ -1,15 +1,9 @@
 import axios from 'axios';
+import type { Pod } from '../types/k8s';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
 });
-
-export interface Pod {
-  name: string;
-  namespace: string;
-  status: string;
-  node?: string;
-}
 
 export const getContexts = async (): Promise<string[]> => {
   const response = await api.get('/contexts');

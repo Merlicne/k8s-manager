@@ -1,0 +1,22 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "backend/Cargo.toml"
+    ],
+    "rust-analyzer.cargo.workingDir": "backend",
+    "eslint.workingDirectories": [
+        "./frontend"
+    ],
+    "editor.formatOnSave": true,
+    "[rust]": {
+        "editor.defaultFormatter": "rust-lang.rust-analyzer"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "oven.bun-vscode"
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "oven.bun-vscode"
+    },
+    "[json]": {
+        "editor.defaultFormatter": "oven.bun-vscode"
+    }
+}

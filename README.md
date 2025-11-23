@@ -5,7 +5,12 @@ A simple, Kubernetes management system built with Rust and React. This applicati
 ## Features
 
 *   **Cluster Context Switching**: Easily switch between different Kubernetes contexts defined in your local configuration.
-*   **Pod Management**: View running pods, their status, namespace, and node assignment.
+*   **Resource Management**: View and manage various Kubernetes resources (Pods, Deployments, Services, ConfigMaps, etc.).
+*   **Resource Relationship Graph**: Interactive visualization of resource dependencies including:
+    *   **Hierarchy**: Owner references (e.g., Deployment -> ReplicaSet -> Pod).
+    *   **Networking**: Service selectors and reverse lookups (Service -> Pod).
+    *   **Storage**: PVC -> PV -> StorageClass bindings.
+    *   **Configuration**: Pod usage of ConfigMaps and Secrets.
 *   **Real-time Updates**: Auto-refresh capability with user-configurable intervals (5s, 10s, 30s, 1m).
 *   **Modern UI**: Clean, responsive interface built with React, Tailwind CSS, and Lucide icons.
 *   **High Performance**: Backend powered by Rust for efficient Kubernetes API interactions.
@@ -23,6 +28,7 @@ A simple, Kubernetes management system built with Rust and React. This applicati
 *   **Runtime/Package Manager**: Bun
 *   **Styling**: Tailwind CSS
 *   **State Management**: TanStack Query (React Query)
+*   **Visualization**: ReactFlow, Dagre
 
 ## Prerequisites
 

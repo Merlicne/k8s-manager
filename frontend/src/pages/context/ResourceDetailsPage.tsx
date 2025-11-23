@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Copy, Check, FileJson, FileCode, LayoutDashboard, FileText, Tag, Network, Plug, X, Play, Square } from 'lucide-react'
 import yaml from 'js-yaml'
 import hljs from 'highlight.js'
-import 'highlight.js/styles/atom-one-dark.css'
+import 'highlight.js/styles/stackoverflow-dark.css'
 import ReactFlow, { 
   Background, 
   Controls, 

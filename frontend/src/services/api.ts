@@ -14,3 +14,9 @@ export const getResources = async (context: string, resourceType: K8sResourceTyp
   const response = await api.get(`/${context}/resources/${resourceType}`);
   return response.data;
 };
+
+export const getResource = async (context: string, resourceType: K8sResourceType, name: string, namespace?: string): Promise<any> => {
+  const params = namespace ? { namespace } : {};
+  const response = await api.get(`/${context}/resources/${resourceType}/${name}`, { params });
+  return response.data;
+};

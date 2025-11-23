@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { 
   RefreshCw, 
   Search, 
   ChevronDown,
-  Box
+  Box,
+  FileText
 } from 'lucide-react'
 import { useResources } from '../../hooks/useK8s'
 import { K8sResourceType } from '../../types/k8s'
@@ -12,6 +13,7 @@ import { PodsView } from './pods'
 
 export function ResourcesPage() {
   const { context, resourceType } = useParams<{ context: string, resourceType: string }>()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [refreshInterval, setRefreshInterval] = useState(5000)
 
@@ -99,19 +101,20 @@ export function ResourcesPage() {
                   <th className="px-6 py-4">Name</th>
                   <th className="px-6 py-4">Namespace</th>
                   <th className="px-6 py-4">Age</th>
+                  <th className="px-6 py-4 w-10"></th>
                   {/* Add more dynamic columns based on type if needed */}
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {filteredResources.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-stone-500">
+                    <td colSpan={4} className="px-6 py-12 text-center text-stone-500">
                       No resources found matching your search.
                     </td>
                   </tr>
                 ) : (
                   filteredResources.map((resource) => (
-                    <tr key={resource.metadata?.uid || resource.metadata?.name} className="hover:bg-stone-50/50 transition-colors">
+                    <tr key={resource.metadata?.uid || resource.metadata?.name} className="hover:bg-stone-50/50 transition-colors group">
                       <td className="px-6 py-4 font-medium text-stone-900">{resource.metadata?.name}</td>
                       <td className="px-6 py-4 text-stone-500">
                         <span className="px-2 py-1 bg-stone-100 rounded text-xs font-medium text-stone-600">
@@ -120,6 +123,15 @@ export function ResourcesPage() {
                       </td>
                       <td className="px-6 py-4 text-stone-500">
                         {resource.metadata?.creationTimestamp ? new Date(resource.metadata.creationTimestamp).toLocaleString() : '-'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => navigate(`${resource.metadata?.name}?namespace=${resource.metadata?.namespace || ''}`)}
+                          className="p-2 text-stone-400 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                          title="View Definition"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))

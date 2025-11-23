@@ -4,7 +4,8 @@ import {
   RefreshCw, 
   Search, 
   ChevronDown,
-  Box
+  Box,
+  Filter
 } from 'lucide-react'
 import { useResources } from '../../hooks/useK8s'
 import { K8sResourceType } from '../../types/k8s'
@@ -15,6 +16,7 @@ export function ResourcesPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [refreshInterval, setRefreshInterval] = useState(5000)
+  const [hideSystem, setHideSystem] = useState(false)
 
   // Validate resource type
   const type = resourceType as K8sResourceType;
@@ -31,10 +33,13 @@ export function ResourcesPage() {
     return resources.filter(r => {
       const name = r.metadata?.name || '';
       const namespace = r.metadata?.namespace || '';
+
+      if (hideSystem && namespace.startsWith('kube-')) return false;
+
       return name.toLowerCase().includes(search.toLowerCase()) ||
              namespace.toLowerCase().includes(search.toLowerCase())
     })
-  }, [resources, search])
+  }, [resources, search, hideSystem])
 
   if (!isValidType) {
     return <div className="p-8 text-center text-red-500">Invalid resource type: {resourceType}</div>
@@ -71,6 +76,19 @@ export function ResourcesPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+
+          <button
+            onClick={() => setHideSystem(!hideSystem)}
+            className={`p-2 rounded-lg border transition-colors flex items-center gap-2 text-sm font-medium ${
+              hideSystem 
+                ? 'bg-amber-50 border-amber-200 text-amber-900' 
+                : 'bg-white border-stone-200 text-stone-500 hover:bg-stone-50'
+            }`}
+            title={hideSystem ? "Show system resources" : "Hide system resources"}
+          >
+            <Filter className="w-4 h-4" />
+            <span className="hidden sm:inline">System</span>
+          </button>
 
           <div className="relative">
             <select

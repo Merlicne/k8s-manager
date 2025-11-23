@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Copy, Check, FileJson, FileCode, LayoutDashboard, FileText, Tag, Network } from 'lucide-react'
+import { ArrowLeft, Copy, Check, FileJson, FileCode, LayoutDashboard, FileText, Tag, Network, Plug, X, Play, Square } from 'lucide-react'
 import yaml from 'js-yaml'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/atom-one-dark.css'
@@ -15,7 +15,7 @@ import type { Node, Edge } from 'reactflow'
 import 'reactflow/dist/style.css'
 import dagre from 'dagre'
 
-import { useResource, useResourceGraph } from '../../hooks/useK8s'
+import { useResource, useResourceGraph, usePortForwards, usePortForwardMutations } from '../../hooks/useK8s'
 import { K8sResourceType } from '../../types/k8s'
 
 // Layout helper
@@ -70,6 +70,13 @@ export function ResourceDetailsPage() {
   const [viewMode, setViewMode] = useState<'yaml' | 'json'>('yaml')
   const [copied, setCopied] = useState(false)
   const codeRef = useRef<HTMLElement>(null)
+
+  const [showPortForwardModal, setShowPortForwardModal] = useState(false)
+  const [selectedPort, setSelectedPort] = useState<number | null>(null)
+  const [localPort, setLocalPort] = useState<string>('')
+  
+  const { data: portForwards } = usePortForwards()
+  const { startMutation, stopMutation } = usePortForwardMutations()
 
   const namespace = new URLSearchParams(window.location.search).get('namespace') || undefined;
 
@@ -174,6 +181,24 @@ export function ResourceDetailsPage() {
     navigator.clipboard.writeText(content)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleStartPortForward = () => {
+    if (!selectedPort || !localPort || !context || !name) return
+    
+    startMutation.mutate({
+      context,
+      namespace: metadata.namespace || 'default',
+      service_name: name,
+      service_port: selectedPort,
+      local_port: parseInt(localPort)
+    }, {
+      onSuccess: () => {
+        setShowPortForwardModal(false)
+        setLocalPort('')
+        setSelectedPort(null)
+      }
+    })
   }
 
   if (isLoading) {
@@ -299,6 +324,79 @@ export function ResourceDetailsPage() {
               </dl>
             </div>
 
+            {/* Service Ports */}
+            {resourceType === K8sResourceType.Service && resource?.spec?.ports && (
+              <div className="bg-white rounded-xl border border-stone-200 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
+                  <Plug className="w-5 h-5 text-stone-400" />
+                  Service Ports
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-stone-50 text-stone-500 font-medium border-b border-stone-200">
+                      <tr>
+                        <th className="px-4 py-2">Name</th>
+                        <th className="px-4 py-2">Port</th>
+                        <th className="px-4 py-2">Protocol</th>
+                        <th className="px-4 py-2">Target Port</th>
+                        <th className="px-4 py-2">Node Port</th>
+                        <th className="px-4 py-2">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {resource.spec.ports.map((port: any, i: number) => {
+                        const activeForward = portForwards?.find(pf => 
+                          pf.context === context && 
+                          pf.namespace === (metadata.namespace || 'default') && 
+                          pf.service_name === name && 
+                          pf.service_port === port.port
+                        );
+
+                        return (
+                          <tr key={i} className="hover:bg-stone-50/50">
+                            <td className="px-4 py-2 font-medium text-stone-900">{port.name || '-'}</td>
+                            <td className="px-4 py-2">{port.port}</td>
+                            <td className="px-4 py-2">{port.protocol}</td>
+                            <td className="px-4 py-2">{port.targetPort}</td>
+                            <td className="px-4 py-2">{port.nodePort || '-'}</td>
+                            <td className="px-4 py-2">
+                              {activeForward ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-mono bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200">
+                                    localhost:{activeForward.local_port}
+                                  </span>
+                                  <button
+                                    onClick={() => stopMutation.mutate(activeForward.local_port)}
+                                    className="p-1 text-stone-400 hover:text-red-600 transition-colors"
+                                    title="Stop forwarding"
+                                  >
+                                    <Square className="w-4 h-4 fill-current" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button 
+                                  className="flex items-center gap-1 text-amber-700 hover:text-amber-900 font-medium text-xs border border-amber-200 bg-amber-50 px-2 py-1 rounded hover:bg-amber-100 transition-colors"
+                                  onClick={() => {
+                                    setSelectedPort(port.port);
+                                    setLocalPort(port.port.toString());
+                                    setShowPortForwardModal(true);
+                                  }}
+                                  title="Forward port"
+                                >
+                                  <Play className="w-3 h-3 fill-current" />
+                                  Forward
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Labels */}
             {metadata.labels && Object.keys(metadata.labels).length > 0 && (
               <div className="bg-white rounded-xl border border-stone-200 p-6 shadow-sm">
@@ -400,6 +498,64 @@ export function ResourceDetailsPage() {
           </div>
         )}
       </div>
+
+      {/* Port Forward Modal */}
+      {showPortForwardModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-stone-900">Start Port Forward</h3>
+              <button 
+                onClick={() => setShowPortForwardModal(false)}
+                className="text-stone-400 hover:text-stone-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-1">
+                  Service Port
+                </label>
+                <div className="px-3 py-2 bg-stone-100 rounded-lg text-stone-600 text-sm">
+                  {selectedPort}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-1">
+                  Local Port
+                </label>
+                <input
+                  type="number"
+                  value={localPort}
+                  onChange={(e) => setLocalPort(e.target.value)}
+                  className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-900/20 focus:border-amber-900"
+                  placeholder="Enter local port"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowPortForwardModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleStartPortForward}
+                  disabled={!localPort || startMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-amber-900 hover:bg-amber-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {startMutation.isPending ? 'Starting...' : 'Start Forwarding'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

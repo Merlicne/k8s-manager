@@ -7,7 +7,8 @@ import {
   CheckCircle2, 
   Clock,
   Search,
-  ChevronDown
+  ChevronDown,
+  Filter
 } from 'lucide-react'
 import { useResources } from '../../hooks/useK8s'
 import { StatCard } from '../../components/StatCard'
@@ -22,6 +23,7 @@ export function PodsView({ context }: PodsViewProps) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [refreshInterval, setRefreshInterval] = useState(5000)
+  const [hideSystem, setHideSystem] = useState(false)
 
   const { data: resources, isLoading: loadingPods, isRefetching } = useResources(context, K8sResourceType.Pod, refreshInterval)
   
@@ -48,11 +50,13 @@ export function PodsView({ context }: PodsViewProps) {
 
   const filteredPods = useMemo(() => {
     if (!pods.length) return []
-    return pods.filter(pod => 
-      pod.name.toLowerCase().includes(search.toLowerCase()) ||
-      pod.namespace.toLowerCase().includes(search.toLowerCase())
-    )
-  }, [pods, search])
+    return pods.filter(pod => {
+      if (hideSystem && pod.namespace.startsWith('kube-')) return false;
+      
+      return pod.name.toLowerCase().includes(search.toLowerCase()) ||
+             pod.namespace.toLowerCase().includes(search.toLowerCase())
+    })
+  }, [pods, search, hideSystem])
 
   return (
     <div className="space-y-8">
@@ -104,6 +108,19 @@ export function PodsView({ context }: PodsViewProps) {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+
+          <button
+            onClick={() => setHideSystem(!hideSystem)}
+            className={`p-2 rounded-lg border transition-colors flex items-center gap-2 text-sm font-medium ${
+              hideSystem 
+                ? 'bg-amber-50 border-amber-200 text-amber-900' 
+                : 'bg-white border-stone-200 text-stone-500 hover:bg-stone-50'
+            }`}
+            title={hideSystem ? "Show system resources" : "Hide system resources"}
+          >
+            <Filter className="w-4 h-4" />
+            <span className="hidden sm:inline">System</span>
+          </button>
 
           <div className="relative">
             <select

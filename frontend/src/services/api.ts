@@ -26,3 +26,35 @@ export const getResourceGraph = async (context: string, resourceType: K8sResourc
   const response = await api.get(`/${context}/resources/${resourceType}/${name}/graph`, { params });
   return response.data;
 };
+
+export interface PortForwardRequest {
+  context: string;
+  namespace: string;
+  service_name: string;
+  service_port: number;
+  local_port: number;
+}
+
+export interface PortForward {
+  id: string;
+  context: string;
+  namespace: string;
+  service_name: string;
+  service_port: number;
+  local_port: number;
+  pid: number;
+}
+
+export const startPortForward = async (data: PortForwardRequest): Promise<PortForward> => {
+  const response = await api.post('/port-forward', data);
+  return response.data;
+};
+
+export const stopPortForward = async (localPort: number): Promise<void> => {
+  await api.delete(`/port-forward/${localPort}`);
+};
+
+export const listPortForwards = async (): Promise<PortForward[]> => {
+  const response = await api.get('/port-forward');
+  return response.data;
+};

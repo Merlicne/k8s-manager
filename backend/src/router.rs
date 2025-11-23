@@ -22,6 +22,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             "/api/{context}/resources/{resource_type}/{name}/graph",
             get(k8s::get_resource_graph),
         )
+        .route("/api/{context}/pods/{name}/logs", get(k8s::get_pod_logs))
         .route(
             "/api/port-forward",
             post(port_forward::start_port_forward).get(port_forward::list_port_forwards),

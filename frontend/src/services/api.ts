@@ -27,6 +27,15 @@ export const getResourceGraph = async (context: string, resourceType: K8sResourc
   return response.data;
 };
 
+export const getPodLogs = async (context: string, name: string, namespace?: string): Promise<string> => {
+  const params = namespace ? { namespace } : {};
+  const response = await api.get(`/${context}/pods/${name}/logs`, { params });
+  if (response.data.error) {
+    throw new Error(response.data.error);
+  }
+  return response.data.logs ?? '';
+};
+
 export interface PortForwardRequest {
   context: string;
   namespace: string;

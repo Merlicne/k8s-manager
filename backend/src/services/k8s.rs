@@ -27,6 +27,13 @@ pub trait K8sService: Send + Sync {
         name: &str,
         namespace: Option<String>,
     ) -> Result<GraphData, Box<dyn Error + Send + Sync>>;
+    async fn get_pod_logs(
+        &self,
+        context_name: &str,
+        name: &str,
+        namespace: &str,
+        container: Option<String>,
+    ) -> Result<String, Box<dyn Error + Send + Sync>>;
 }
 
 #[derive(Clone)]
@@ -35,6 +42,22 @@ pub struct K8sClient;
 impl K8sClient {
     pub fn new() -> Self {
         Self {}
+    }
+
+    async fn create_client(context_name: &str) -> Result<Client, Box<dyn Error + Send + Sync>> {
+        let kubeconfig =
+            Kubeconfig::read().map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+        let options = KubeConfigOptions {
+            context: Some(context_name.to_string()),
+            ..Default::default()
+        };
+
+        let mut config = kube::Config::from_custom_kubeconfig(kubeconfig, &options)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+        config.accept_invalid_certs = true;
+
+        Client::try_from(config).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
     /// Helper to extract contexts from Kubeconfig, exposed for testing
@@ -877,19 +900,7 @@ impl K8sService for K8sClient {
         context_name: &str,
         resource_type: K8sResourceType,
     ) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
-        let kubeconfig =
-            Kubeconfig::read().map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        let options = KubeConfigOptions {
-            context: Some(context_name.to_string()),
-            ..Default::default()
-        };
-
-        let config = kube::Config::from_custom_kubeconfig(kubeconfig, &options)
-            .await
-            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        let client =
-            Client::try_from(config).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-
+        let client = Self::create_client(context_name).await?;
         Self::list_resources_with_client(client, resource_type).await
     }
 
@@ -900,19 +911,7 @@ impl K8sService for K8sClient {
         name: &str,
         namespace: Option<String>,
     ) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
-        let kubeconfig =
-            Kubeconfig::read().map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        let options = KubeConfigOptions {
-            context: Some(context_name.to_string()),
-            ..Default::default()
-        };
-
-        let config = kube::Config::from_custom_kubeconfig(kubeconfig, &options)
-            .await
-            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        let client =
-            Client::try_from(config).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-
+        let client = Self::create_client(context_name).await?;
         Self::get_resource_with_client(client, resource_type, name, namespace).await
     }
 
@@ -923,19 +922,81 @@ impl K8sService for K8sClient {
         name: &str,
         namespace: Option<String>,
     ) -> Result<GraphData, Box<dyn Error + Send + Sync>> {
-        let kubeconfig =
-            Kubeconfig::read().map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        let options = KubeConfigOptions {
-            context: Some(context_name.to_string()),
+        let client = Self::create_client(context_name).await?;
+        Self::get_resource_graph_with_client(client, resource_type, name, namespace).await
+    }
+
+    async fn get_pod_logs(
+        &self,
+        context_name: &str,
+        name: &str,
+        namespace: &str,
+        container: Option<String>,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let client = Self::create_client(context_name).await?;
+
+        let pods: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, namespace);
+
+        // If container is not specified, try to determine a default one
+        let container_name = if container.is_none() {
+            // We only need to fetch the pod if we suspect multiple containers or just to be safe.
+            // However, fetching the pod adds latency.
+            // Let's try to fetch the pod to check containers.
+            match pods.get(name).await {
+                Ok(pod) => {
+                    if let Some(spec) = pod.spec {
+                        let containers = spec.containers;
+                        if !containers.is_empty() {
+                            Some(containers[0].name.clone())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                Err(_) => None, // If we can't get the pod, we can't guess. Let k8s fail if needed.
+            }
+        } else {
+            container
+        };
+
+        let log_params = kube::api::LogParams {
+            tail_lines: Some(50),
+            container: container_name.clone(),
             ..Default::default()
         };
 
-        let config = kube::Config::from_custom_kubeconfig(kubeconfig, &options)
-            .await
-            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        let client =
-            Client::try_from(config).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+        println!(
+            "Fetching logs for pod: {} in namespace: {} (container: {:?})",
+            name, namespace, container_name
+        );
 
-        Self::get_resource_graph_with_client(client, resource_type, name, namespace).await
+        let logs = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            pods.logs(name, &log_params),
+        )
+        .await
+        .map_err(|_| {
+            println!("Timeout fetching logs for pod: {}", name);
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Timeout fetching logs",
+            )) as Box<dyn Error + Send + Sync>
+        })?
+        .map_err(|e| {
+            println!("Error fetching logs for pod: {}: {}", name, e);
+            Box::new(e) as Box<dyn Error + Send + Sync>
+        })?;
+
+        // Reverse logs to show newest first
+        let logs = logs.lines().rev().collect::<Vec<&str>>().join("\n");
+
+        println!(
+            "Successfully fetched {} bytes of logs for pod: {}",
+            logs.len(),
+            name
+        );
+        Ok(logs)
     }
 }

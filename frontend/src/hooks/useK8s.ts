@@ -4,6 +4,7 @@ import {
   getResources, 
   getResource, 
   getResourceGraph,
+  getPodLogs,
   listPortForwards,
   startPortForward,
   stopPortForward,
@@ -40,6 +41,15 @@ export function useResourceGraph(context: string, resourceType: K8sResourceType,
     queryKey: ['resource-graph', context, resourceType, name, namespace],
     queryFn: () => getResourceGraph(context, resourceType, name, namespace),
     enabled: !!context && !!resourceType && !!name,
+  })
+}
+
+export function usePodLogs(context: string, name: string, namespace?: string, enabled: boolean = false) {
+  return useQuery({
+    queryKey: ['pod-logs', context, name, namespace],
+    queryFn: () => getPodLogs(context, name, namespace),
+    enabled: !!context && !!name && enabled,
+    refetchInterval: 5000, // Auto-refresh logs every 5s
   })
 }
 

@@ -44,6 +44,17 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "cargo-build-backend",
+            "type": "shell",
+            "command": "cargo build",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
         }
     ]
 }

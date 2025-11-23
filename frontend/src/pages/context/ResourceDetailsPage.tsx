@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Copy, Check, FileJson, FileCode, LayoutDashboard, FileText, Tag, Network, Plug, X, Play, Square } from 'lucide-react'
+import { ArrowLeft, Copy, Check, FileJson, FileCode, LayoutDashboard, FileText, Tag, Network, Plug, X, Play, Square, ScrollText } from 'lucide-react'
 import yaml from 'js-yaml'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/stackoverflow-dark.css'
@@ -15,7 +15,7 @@ import type { Node, Edge } from 'reactflow'
 import 'reactflow/dist/style.css'
 import dagre from 'dagre'
 
-import { useResource, useResourceGraph, usePortForwards, usePortForwardMutations } from '../../hooks/useK8s'
+import { useResource, useResourceGraph, usePortForwards, usePortForwardMutations, usePodLogs } from '../../hooks/useK8s'
 import { K8sResourceType } from '../../types/k8s'
 
 // Layout helper
@@ -66,7 +66,7 @@ const getEdgeColor = (label: string) => {
 export function ResourceDetailsPage() {
   const { context, resourceType, name } = useParams<{ context: string, resourceType: string, name: string }>()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'overview' | 'definition' | 'graph'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'definition' | 'graph' | 'logs'>('overview')
   const [viewMode, setViewMode] = useState<'yaml' | 'json'>('yaml')
   const [copied, setCopied] = useState(false)
   const codeRef = useRef<HTMLElement>(null)
@@ -85,6 +85,13 @@ export function ResourceDetailsPage() {
     resourceType as K8sResourceType, 
     name || '', 
     namespace
+  )
+
+  const { data: logs, isLoading: isLogsLoading, error: logsError } = usePodLogs(
+    context || '',
+    name || '',
+    namespace,
+    activeTab === 'logs' && resourceType === K8sResourceType.Pod
   )
 
   const { data: graphData, isLoading: isGraphLoading } = useResourceGraph(
@@ -285,6 +292,20 @@ export function ResourceDetailsPage() {
             <Network className="w-4 h-4" />
             Graph
           </button>
+          {resourceType === K8sResourceType.Pod && (
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`
+                flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                ${activeTab === 'logs'
+                  ? 'border-amber-900 text-amber-900'
+                  : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}
+              `}
+            >
+              <ScrollText className="w-4 h-4" />
+              Logs
+            </button>
+          )}
         </nav>
       </div>
 
@@ -495,6 +516,34 @@ export function ResourceDetailsPage() {
                 <Controls />
               </ReactFlow>
             )}
+          </div>
+        )}
+
+        {activeTab === 'logs' && resourceType === K8sResourceType.Pod && (
+          <div className="flex-1 bg-[#282c34] rounded-xl overflow-hidden border border-stone-800 shadow-inner min-h-0 flex flex-col">
+             <div className="p-4 border-b border-stone-700 bg-[#21252b] flex justify-between items-center shrink-0">
+                <span className="text-stone-400 text-xs font-mono">Last 50 lines (auto-refreshing)</span>
+             </div>
+             <pre className="flex-1 overflow-auto p-4 text-xs font-mono leading-relaxed text-stone-300">
+               {logs !== undefined ? (
+                 <>
+                   {logs || <span className="text-stone-500 italic">No logs available</span>}
+                   {logsError && (
+                     <div className="mt-4 pt-2 border-t border-stone-700 text-red-400 text-xs">
+                       <span className="font-bold">Error updating logs:</span> {logsError instanceof Error ? logsError.message : String(logsError)}
+                     </div>
+                   )}
+                 </>
+               ) : logsError ? (
+                 <div className="text-red-400 whitespace-pre-wrap font-mono">
+                   {logsError instanceof Error ? logsError.message : String(logsError)}
+                 </div>
+               ) : isLogsLoading ? (
+                 <div className="text-stone-500">Loading logs...</div>
+               ) : (
+                 <span className="text-stone-500 italic">No logs available</span>
+               )}
+             </pre>
           </div>
         )}
       </div>

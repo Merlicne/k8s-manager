@@ -11,6 +11,7 @@ use std::sync::Arc;
 #[derive(Deserialize)]
 pub struct GetResourceQuery {
     namespace: Option<String>,
+    container: Option<String>,
 }
 
 pub async fn list_contexts(State(state): State<Arc<AppState>>) -> Json<Value> {
@@ -61,5 +62,21 @@ pub async fn get_resource_graph(
     {
         Ok(graph) => Json(json!(graph)),
         Err(e) => Json(json!({ "error": format!("Failed to get resource graph: {}", e) })),
+    }
+}
+
+pub async fn get_pod_logs(
+    State(state): State<Arc<AppState>>,
+    Path((context, name)): Path<(String, String)>,
+    Query(query): Query<GetResourceQuery>,
+) -> Json<Value> {
+    let namespace = query.namespace.unwrap_or_else(|| "default".to_string());
+    match state
+        .k8s_service
+        .get_pod_logs(&context, &name, &namespace, query.container)
+        .await
+    {
+        Ok(logs) => Json(json!({ "logs": logs })),
+        Err(e) => Json(json!({ "error": format!("Failed to get pod logs: {}", e) })),
     }
 }

@@ -15,5 +15,9 @@ pub fn create_router(k8s_service: Arc<dyn K8sService>) -> Router {
             "/api/{context}/resources/{resource_type}/{name}",
             get(k8s::get_resource),
         )
+        .route(
+            "/api/{context}/resources/{resource_type}/{name}/graph",
+            get(k8s::get_resource_graph),
+        )
         .with_state(k8s_service)
 }

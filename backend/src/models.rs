@@ -19,6 +19,7 @@ pub enum K8sResourceType {
     // Storage Objects
     PersistentVolume,
     PersistentVolumeClaim,
+    StorageClass,
 
     // Configuration & Policy Objects
     ConfigMap,
@@ -32,6 +33,32 @@ pub enum K8sResourceType {
 }
 
 impl K8sResourceType {
+    pub fn from_kind(kind: &str) -> Option<Self> {
+        match kind {
+            "Pod" => Some(Self::Pod),
+            "Deployment" => Some(Self::Deployment),
+            "ReplicaSet" => Some(Self::ReplicaSet),
+            "StatefulSet" => Some(Self::StatefulSet),
+            "DaemonSet" => Some(Self::DaemonSet),
+            "Job" => Some(Self::Job),
+            "CronJob" => Some(Self::CronJob),
+            "Service" => Some(Self::Service),
+            "Ingress" => Some(Self::Ingress),
+            "PersistentVolume" => Some(Self::PersistentVolume),
+            "PersistentVolumeClaim" => Some(Self::PersistentVolumeClaim),
+            "StorageClass" => Some(Self::StorageClass),
+            "ConfigMap" => Some(Self::ConfigMap),
+            "Secret" => Some(Self::Secret),
+            "Namespace" => Some(Self::Namespace),
+            "Role" => Some(Self::Role),
+            "ClusterRole" => Some(Self::ClusterRole),
+            "RoleBinding" => Some(Self::RoleBinding),
+            "ClusterRoleBinding" => Some(Self::ClusterRoleBinding),
+            "ServiceAccount" => Some(Self::ServiceAccount),
+            _ => None,
+        }
+    }
+
     pub fn get_api_resource(&self) -> ApiResource {
         let gvk = match self {
             // Workload and Compute Objects
@@ -50,6 +77,7 @@ impl K8sResourceType {
             // Storage Objects
             Self::PersistentVolume => GroupVersionKind::gvk("", "v1", "PersistentVolume"),
             Self::PersistentVolumeClaim => GroupVersionKind::gvk("", "v1", "PersistentVolumeClaim"),
+            Self::StorageClass => GroupVersionKind::gvk("storage.k8s.io", "v1", "StorageClass"),
 
             // Configuration & Policy Objects
             Self::ConfigMap => GroupVersionKind::gvk("", "v1", "ConfigMap"),
@@ -87,4 +115,26 @@ impl K8sResourceType {
         resource.plural = plural_string;
         resource
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphNode {
+    pub id: String,
+    pub label: String,
+    pub resource_type: String,
+    pub data: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphEdge {
+    pub id: String,
+    pub source: String,
+    pub target: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphData {
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
 }

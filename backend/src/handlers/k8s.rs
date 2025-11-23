@@ -43,3 +43,17 @@ pub async fn get_resource(
         Err(e) => Json(json!({ "error": format!("Failed to get resource: {}", e) })),
     }
 }
+
+pub async fn get_resource_graph(
+    State(service): State<Arc<dyn K8sService>>,
+    Path((context, resource_type, name)): Path<(String, K8sResourceType, String)>,
+    Query(query): Query<GetResourceQuery>,
+) -> Json<Value> {
+    match service
+        .get_resource_graph(&context, resource_type, &name, query.namespace)
+        .await
+    {
+        Ok(graph) => Json(json!(graph)),
+        Err(e) => Json(json!({ "error": format!("Failed to get resource graph: {}", e) })),
+    }
+}

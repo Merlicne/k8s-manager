@@ -35,3 +35,22 @@ export interface Pod {
   status: string;
   node?: string;
 }
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  resource_type: string;
+  data: any;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}

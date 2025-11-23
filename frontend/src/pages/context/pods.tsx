@@ -7,8 +7,7 @@ import {
   CheckCircle2, 
   Clock,
   Search,
-  ChevronDown,
-  FileText
+  ChevronDown
 } from 'lucide-react'
 import { useResources } from '../../hooks/useK8s'
 import { StatCard } from '../../components/StatCard'
@@ -135,20 +134,26 @@ export function PodsView({ context }: PodsViewProps) {
                   <th className="px-6 py-4">Namespace</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Node</th>
-                  <th className="px-6 py-4 w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {filteredPods.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-stone-500">
+                    <td colSpan={4} className="px-6 py-12 text-center text-stone-500">
                       No pods found matching your search.
                     </td>
                   </tr>
                 ) : (
                   filteredPods.map((pod) => (
                     <tr key={pod.namespace + pod.name} className="hover:bg-stone-50/50 transition-colors group">
-                      <td className="px-6 py-4 font-medium text-stone-900">{pod.name}</td>
+                      <td className="px-6 py-4 font-medium text-stone-900">
+                        <button 
+                          onClick={() => navigate(`${encodeURIComponent(pod.name)}?namespace=${pod.namespace}`)}
+                          className="hover:text-amber-900 hover:underline text-left"
+                        >
+                          {pod.name}
+                        </button>
+                      </td>
                       <td className="px-6 py-4 text-stone-500">
                         <span className="px-2 py-1 bg-stone-100 rounded text-xs font-medium text-stone-600">
                           {pod.namespace}
@@ -158,15 +163,6 @@ export function PodsView({ context }: PodsViewProps) {
                         <StatusBadge status={pod.status} />
                       </td>
                       <td className="px-6 py-4 text-stone-500 font-mono text-xs">{pod.node || '-'}</td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => navigate(`${pod.name}?namespace=${pod.namespace}`)}
-                          className="p-2 text-stone-400 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                          title="View Definition"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </button>
-                      </td>
                     </tr>
                   ))
                 )}

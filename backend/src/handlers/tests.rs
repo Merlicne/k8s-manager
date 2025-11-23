@@ -1,8 +1,10 @@
 #[cfg(test)]
 mod tests {
     use super::super::k8s::{list_contexts, list_resources};
+    use crate::managers::port_forward::PortForwardManager;
     use crate::models::K8sResourceType;
-    use crate::services::k8s::{K8sService, MockK8sService};
+    use crate::services::k8s::MockK8sService;
+    use crate::AppState;
     use axum::{
         extract::{Path, State},
         Json,
@@ -17,7 +19,10 @@ mod tests {
             .times(1)
             .returning(|| Ok(vec!["context1".to_string(), "context2".to_string()]));
 
-        let state = State(Arc::new(mock_service) as Arc<dyn K8sService>);
+        let state = State(Arc::new(AppState {
+            k8s_service: Arc::new(mock_service),
+            port_forward_manager: PortForwardManager::new(),
+        }));
         let Json(response) = list_contexts(state).await;
 
         assert_eq!(response["contexts"][0], "context1");
@@ -32,7 +37,10 @@ mod tests {
             .times(1)
             .returning(|| Err(Box::from("K8s error")));
 
-        let state = State(Arc::new(mock_service) as Arc<dyn K8sService>);
+        let state = State(Arc::new(AppState {
+            k8s_service: Arc::new(mock_service),
+            port_forward_manager: PortForwardManager::new(),
+        }));
         let Json(response) = list_contexts(state).await;
 
         assert_eq!(response["error"], "K8s error");
@@ -57,7 +65,10 @@ mod tests {
                 })])
             });
 
-        let state = State(Arc::new(mock_service) as Arc<dyn K8sService>);
+        let state = State(Arc::new(AppState {
+            k8s_service: Arc::new(mock_service),
+            port_forward_manager: PortForwardManager::new(),
+        }));
         let path = Path(("minikube".to_string(), K8sResourceType::Pod));
         let Json(response) = list_resources(state, path).await;
 

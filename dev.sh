@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /bin/bash
 
 # check if cargo is installed
 if ! command -v cargo &> /dev/null

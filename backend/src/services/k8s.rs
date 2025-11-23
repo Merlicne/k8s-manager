@@ -1,5 +1,5 @@
+use crate::models::K8sResourceType;
 use async_trait::async_trait;
-use k8s_openapi::api::core::v1::Pod;
 use kube::config::{KubeConfigOptions, Kubeconfig};
 use kube::{Api, Client};
 use std::error::Error;
@@ -8,8 +8,11 @@ use std::error::Error;
 #[async_trait]
 pub trait K8sService: Send + Sync {
     async fn get_contexts(&self) -> Result<Vec<String>, Box<dyn Error + Send + Sync>>;
-    async fn list_pods(&self, context_name: &str)
-        -> Result<Vec<Pod>, Box<dyn Error + Send + Sync>>;
+    async fn list_resources(
+        &self,
+        context_name: &str,
+        resource_type: K8sResourceType,
+    ) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>>;
 }
 
 #[derive(Clone)]
@@ -25,11 +28,24 @@ impl K8sClient {
         config.contexts.into_iter().map(|c| c.name).collect()
     }
 
-    /// Helper to list pods using a provided client, exposed for testing
-    pub(crate) async fn list_pods_with_client(client: Client) -> Result<Vec<Pod>, Box<dyn Error + Send + Sync>> {
-        let pods: Api<Pod> = Api::all(client);
-        let list = pods.list(&Default::default()).await.map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        Ok(list.items)
+    /// Helper to list resources using a provided client, exposed for testing
+    pub(crate) async fn list_resources_with_client(
+        client: Client,
+        resource_type: K8sResourceType,
+    ) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
+        let api_resource = resource_type.get_api_resource();
+        let api: Api<kube::api::DynamicObject> = Api::all_with(client, &api_resource);
+
+        let list = api
+            .list(&Default::default())
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+
+        Ok(list
+            .items
+            .into_iter()
+            .map(|item| serde_json::to_value(item).unwrap_or_default())
+            .collect())
     }
 }
 
@@ -41,10 +57,11 @@ impl K8sService for K8sClient {
         Ok(Self::extract_contexts(kubeconfig))
     }
 
-    async fn list_pods(
+    async fn list_resources(
         &self,
         context_name: &str,
-    ) -> Result<Vec<Pod>, Box<dyn Error + Send + Sync>> {
+        resource_type: K8sResourceType,
+    ) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
         let kubeconfig =
             Kubeconfig::read().map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
         let options = KubeConfigOptions {
@@ -58,6 +75,6 @@ impl K8sService for K8sClient {
         let client =
             Client::try_from(config).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
 
-        Self::list_pods_with_client(client).await
+        Self::list_resources_with_client(client, resource_type).await
     }
 }

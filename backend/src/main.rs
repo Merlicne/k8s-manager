@@ -6,6 +6,7 @@ use crate::services::k8s::K8sClient;
 mod handlers;
 mod router;
 mod services;
+mod models;
 
 #[tokio::main]
 async fn main() {

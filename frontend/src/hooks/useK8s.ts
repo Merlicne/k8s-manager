@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { getContexts, getPods } from '../services/api'
+import { getContexts, getResources } from '../services/api'
+import { K8sResourceType } from '../types/k8s'
 
 export function useContexts() {
   return useQuery({
@@ -8,11 +9,11 @@ export function useContexts() {
   })
 }
 
-export function usePods(context: string, refreshInterval: number = 5000) {
+export function useResources(context: string, resourceType: K8sResourceType, refreshInterval: number = 5000) {
   return useQuery({
-    queryKey: ['pods', context],
-    queryFn: () => getPods(context),
-    enabled: !!context,
+    queryKey: ['resources', context, resourceType],
+    queryFn: () => getResources(context, resourceType),
+    enabled: !!context && !!resourceType,
     refetchInterval: refreshInterval,
   })
 }

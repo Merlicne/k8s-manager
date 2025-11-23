@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use super::super::k8s::{list_contexts, list_pods};
+    use super::super::k8s::{list_contexts, list_resources};
+    use crate::models::K8sResourceType;
     use crate::services::k8s::{K8sService, MockK8sService};
     use axum::{
         extract::{Path, State},
         Json,
     };
-    use k8s_openapi::api::core::v1::Pod;
     use std::sync::Arc;
 
     #[tokio::test]
@@ -39,24 +39,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_pods_success() {
+    async fn test_list_resources_success() {
         let mut mock_service = MockK8sService::new();
         mock_service
-            .expect_list_pods()
-            .with(mockall::predicate::eq("minikube"))
+            .expect_list_resources()
+            .with(
+                mockall::predicate::eq("minikube"),
+                mockall::predicate::eq(K8sResourceType::Pod),
+            )
             .times(1)
-            .returning(|_| {
-                let mut pod = Pod::default();
-                pod.metadata.name = Some("test-pod".to_string());
-                pod.metadata.namespace = Some("default".to_string());
-                Ok(vec![pod])
+            .returning(|_, _| {
+                Ok(vec![serde_json::json!({
+                    "metadata": {
+                        "name": "test-pod",
+                        "namespace": "default"
+                    }
+                })])
             });
 
         let state = State(Arc::new(mock_service) as Arc<dyn K8sService>);
-        let path = Path("minikube".to_string());
-        let Json(response) = list_pods(state, path).await;
+        let path = Path(("minikube".to_string(), K8sResourceType::Pod));
+        let Json(response) = list_resources(state, path).await;
 
-        assert_eq!(response["pods"][0]["name"], "test-pod");
-        assert_eq!(response["pods"][0]["namespace"], "default");
+        assert_eq!(response[0]["metadata"]["name"], "test-pod");
     }
 }

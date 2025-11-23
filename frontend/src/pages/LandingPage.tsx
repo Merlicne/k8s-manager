@@ -27,7 +27,7 @@ export function LandingPage() {
           {contexts?.map(ctx => (
             <button
               key={ctx}
-              onClick={() => navigate(`/${ctx}/pods`)}
+              onClick={() => navigate(`/${ctx}`)}
               className="flex items-center gap-4 p-5 bg-white border border-stone-200 rounded-xl hover:border-amber-500 hover:shadow-md hover:-translate-y-0.5 transition-all text-left group"
             >
               <div className="p-3 bg-stone-50 rounded-lg group-hover:bg-amber-50 transition-colors border border-stone-100 group-hover:border-amber-100">

@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
 import { 
   RefreshCw, 
   Box, 
@@ -9,23 +8,34 @@ import {
   Search,
   ChevronDown
 } from 'lucide-react'
-import { usePods } from '../../hooks/useK8s'
+import { useResources } from '../../hooks/useK8s'
 import { StatCard } from '../../components/StatCard'
 import { StatusBadge } from '../../components/StatusBadge'
+import { K8sResourceType, type Pod } from '../../types/k8s'
 
-export function ContextPage() {
-  const { context } = useParams<{ context: string }>()
+interface PodsViewProps {
+  context: string;
+}
+
+export function PodsView({ context }: PodsViewProps) {
   const [search, setSearch] = useState('')
   const [refreshInterval, setRefreshInterval] = useState(5000)
 
-  // We can assume context is present because of the route definition, 
-  // but it's good to handle the case where it might be undefined if used elsewhere.
-  const currentContext = context || ''
-
-  const { data: pods, isLoading: loadingPods, isRefetching } = usePods(currentContext, refreshInterval)
+  const { data: resources, isLoading: loadingPods, isRefetching } = useResources(context, K8sResourceType.Pod, refreshInterval)
+  
+  // Transform raw resources to Pod interface
+  const pods = useMemo(() => {
+    if (!resources) return [] as Pod[];
+    return resources.map((r: any) => ({
+      name: r.metadata?.name || '',
+      namespace: r.metadata?.namespace || '',
+      status: r.status?.phase || 'Unknown',
+      node: r.spec?.nodeName || ''
+    }))
+  }, [resources])
 
   const stats = useMemo(() => {
-    if (!pods) return { total: 0, running: 0, pending: 0, failed: 0 }
+    if (!pods.length) return { total: 0, running: 0, pending: 0, failed: 0 }
     return {
       total: pods.length,
       running: pods.filter(p => p.status === 'Running').length,
@@ -35,16 +45,12 @@ export function ContextPage() {
   }, [pods])
 
   const filteredPods = useMemo(() => {
-    if (!pods) return []
+    if (!pods.length) return []
     return pods.filter(pod => 
       pod.name.toLowerCase().includes(search.toLowerCase()) ||
       pod.namespace.toLowerCase().includes(search.toLowerCase())
     )
   }, [pods, search])
-
-  if (!currentContext) {
-      return <div>No context selected</div>
-  }
 
   return (
     <div className="space-y-8">
@@ -112,7 +118,7 @@ export function ContextPage() {
           </div>
         </div>
 
-        {loadingPods && !pods ? (
+        {loadingPods && !pods.length ? (
           <div className="p-12 text-center">
             <RefreshCw className="w-8 h-8 animate-spin text-amber-900 mx-auto mb-4" />
             <p className="text-stone-500">Loading cluster resources...</p>
